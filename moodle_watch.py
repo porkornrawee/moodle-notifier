@@ -70,9 +70,12 @@ class Config:
         self.password = os.environ.get("MOODLE_PASS", "") or keychain_password(
             os.environ.get("KEYCHAIN_SERVICE", "moodle-watch"), self.user
         ) or ""
-        self.course_ids = [
-            c.strip() for c in os.environ.get("COURSE_IDS", "914").split(",") if c.strip()
-        ]
+        raw_courses = os.environ.get("COURSE_IDS", "all").strip()
+        self.course_ids = (
+            [] if raw_courses.lower() == "all"
+            else [c.strip() for c in raw_courses.split(",") if c.strip()]
+        )
+        self.auto_discover = not self.course_ids  # COURSE_IDS ว่าง/เป็น "all" → เฝ้าทุกคอร์สที่ลงทะเบียน
         self.state_file = os.environ.get("STATE_FILE", os.path.join(HERE, "state.json"))
         self.discord = os.environ.get("DISCORD_WEBHOOK_URL", "")
         self.tg_token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
@@ -208,6 +211,15 @@ class MoodleWS:
             raise RuntimeError(f"{function}: {data.get('errorcode')} — {data.get('message')}")
         return data
 
+    def discover_course_ids(self):
+        """คืนรหัสคอร์สทั้งหมดที่บัญชีนี้ลงทะเบียนอยู่ (ไม่รวมคอร์สหลัก id=1)"""
+        info = self.call("core_webservice_get_site_info")
+        userid = info.get("userid")
+        if not userid:
+            raise RuntimeError("หา userid ไม่ได้ (core_webservice_get_site_info)")
+        courses = self.call("core_enrol_get_users_courses", userid=userid)
+        return [str(c["id"]) for c in courses if str(c.get("id")) not in ("", "1")]
+
     # ---- snapshot ----
     def snapshot(self, course_id):
         items = {}
@@ -312,6 +324,14 @@ class MoodleHTML:
         if "loginerrors" in body or "Invalid login" in body or "login/index.php" in url:
             raise RuntimeError("ล็อกอินไม่สำเร็จ — ตรวจ MOODLE_USER / MOODLE_PASS")
         return True
+
+    def discover_course_ids(self):
+        """คืนรหัสคอร์สทั้งหมดที่บัญชีนี้ลงทะเบียนอยู่ โดยขูดจากหน้า Dashboard"""
+        page, url = self.http.get(f"{self.cfg.base}/my/courses.php")
+        if "/login/index.php" in url:
+            raise RuntimeError("session หลุด (ถูกเด้งไปหน้า login)")
+        ids = sorted(set(re.findall(r"/course/view\.php\?id=(\d+)", page)), key=int)
+        return [i for i in ids if i != "1"]
 
     def snapshot(self, course_id):
         page, url = self.http.get(f"{self.cfg.base}/course/view.php?id={course_id}")
@@ -539,8 +559,19 @@ def run_once(cfg, state, init=False, force_mode=None):
     client, mode = build_client(cfg, http_, state, force_mode)
     log(f"เชื่อมต่อสำเร็จ (โหมด {mode.upper()})")
 
+    course_ids = cfg.course_ids
+    if cfg.auto_discover:
+        try:
+            course_ids = client.discover_course_ids()
+            log(f"เฝ้าทุกคอร์สที่ลงทะเบียน: {len(course_ids)} คอร์ส ({', '.join(course_ids) or '-'})")
+        except Exception as e:
+            course_ids = list(state["courses"].keys())
+            if not course_ids:
+                raise
+            log(f"หารายชื่อคอร์สอัตโนมัติไม่ได้ ({e}) — ใช้รายชื่อคอร์สที่เคยเจอล่าสุดแทน: {', '.join(course_ids)}")
+
     total = 0
-    for cid in cfg.course_ids:
+    for cid in course_ids:
         try:
             course_name, items = client.snapshot(cid)
         except Exception as e:

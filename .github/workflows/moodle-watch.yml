@@ -48,7 +48,7 @@ jobs:
           MOODLE_URL: https://courses.cs.tu.ac.th
           MOODLE_USER: ${{ secrets.MOODLE_USER }}
           MOODLE_PASS: ${{ secrets.MOODLE_PASS }}
-          COURSE_IDS: ${{ vars.COURSE_IDS || '914' }}
+          COURSE_IDS: ${{ vars.COURSE_IDS || 'all' }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
