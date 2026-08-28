@@ -1,0 +1,68 @@
+name: Moodle watch
+
+on:
+  schedule:
+    # ทุก 30 นาที ช่วง 00:00-16:59 UTC = 07:00-23:59 เวลาไทย
+    # โควตา Actions ของ private repo (แผน Free) = 2,000 นาที/เดือน
+    # 34 รอบ/วัน x 30 วัน x ~1 นาที = ~1,020 นาที/เดือน (ใช้ราว 51% ปลอดภัย)
+    # อยากไวขึ้นเปลี่ยนเป็น */20 (~1,530 นาที) หรือ */15 (~2,040 นาที = เกินโควตา!)
+    - cron: "*/30 0-16 * * *"
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "สิ่งที่ต้องการทำ"
+        required: true
+        default: check
+        type: choice
+        options:
+          - check         # เช็คของใหม่ตามปกติ
+          - test-notify   # ทดสอบส่งแจ้งเตือนอย่างเดียว
+          - init          # บันทึกฐานตั้งต้นใหม่ (ไม่ส่งแจ้งเตือน)
+
+concurrency:
+  group: moodle-watch
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # เก็บ state.json ข้ามรอบด้วย cache (key ใหม่ทุกครั้ง + restore-keys ดึงอันล่าสุด)
+      - name: Restore state
+        if: inputs.action != 'test-notify'
+        uses: actions/cache/restore@v4
+        with:
+          path: state.json
+          key: moodle-state-${{ github.run_id }}
+          restore-keys: moodle-state-
+
+      - name: Run watcher
+        env:
+          MOODLE_URL: https://courses.cs.tu.ac.th
+          MOODLE_USER: ${{ secrets.MOODLE_USER }}
+          MOODLE_PASS: ${{ secrets.MOODLE_PASS }}
+          COURSE_IDS: ${{ vars.COURSE_IDS || '914' }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          NOTIFY_MACOS: "0"
+        run: |
+          case "${{ inputs.action || 'check' }}" in
+            test-notify) python3 moodle_watch.py --test-notify ;;
+            init)        python3 moodle_watch.py --init ;;
+            *)           python3 moodle_watch.py ;;
+          esac
+
+      - name: Save state
+        if: always() && inputs.action != 'test-notify'
+        uses: actions/cache/save@v4
+        with:
+          path: state.json
+          key: moodle-state-${{ github.run_id }}
