@@ -22,7 +22,7 @@
 ### 1. ตั้งค่า
 
 ```bash
-cd ~/Desktop/moodle-notifier
+cd ~/Desktop/porkornrawee/Coding-Projects/Personal-Projects/moodle-notifier
 cp .env.example .env
 open -e .env          # ใส่ username / password Moodle + ช่องทางแจ้งเตือน
 ```

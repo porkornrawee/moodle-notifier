@@ -7,7 +7,7 @@
 
   <key>ProgramArguments</key>
   <array>
-    <string>/Users/porkornrawee/Desktop/moodle-notifier/run.sh</string>
+    <string>/Users/porkornrawee/Desktop/porkornrawee/Coding-Projects/Personal-Projects/moodle-notifier/run.sh</string>
   </array>
 
   <!-- เช็คทุก 15 นาที (900 วินาที) -->
@@ -18,11 +18,11 @@
   <true/>
 
   <key>WorkingDirectory</key>
-  <string>/Users/porkornrawee/Desktop/moodle-notifier</string>
+  <string>/Users/porkornrawee/Desktop/porkornrawee/Coding-Projects/Personal-Projects/moodle-notifier</string>
 
   <key>StandardOutPath</key>
-  <string>/Users/porkornrawee/Desktop/moodle-notifier/launchd.out.log</string>
+  <string>/Users/porkornrawee/Desktop/porkornrawee/Coding-Projects/Personal-Projects/moodle-notifier/launchd.out.log</string>
   <key>StandardErrorPath</key>
-  <string>/Users/porkornrawee/Desktop/moodle-notifier/launchd.err.log</string>
+  <string>/Users/porkornrawee/Desktop/porkornrawee/Coding-Projects/Personal-Projects/moodle-notifier/launchd.err.log</string>
 </dict>
 </plist>
