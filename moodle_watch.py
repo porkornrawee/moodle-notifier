@@ -437,19 +437,29 @@ def due_reminders(items, sent, alerts):
 def fmt_event(action, item):
     icon = MOD_ICON.get(item.get("modname", ""), "•")
     verb = {"new": "🆕 ใหม่", "changed": "✏️ แก้ไข", "removed": "🗑️ ถูกลบ"}[action]
-    line = f"{verb} — {icon} {item.get('title','(ไม่มีชื่อ)')}"
-    bits = []
+    lines = [f"{verb} · {icon} **{item.get('title','(ไม่มีชื่อ)')}**"]
+    meta = []
     if item.get("section"):
-        bits.append(f"หมวด: {item['section']}")
+        meta.append(f"📂 {item['section']}")
     if item.get("author"):
-        bits.append(f"โดย: {item['author']}")
-    if item.get("detail"):
-        bits.append(item["detail"])
-    if bits:
-        line += "\n    " + "\n    ".join(bits)
+        meta.append(f"✍️ {item['author']}")
+    if meta:
+        lines.append("> " + "  ·  ".join(meta))
+    for l in item.get("detail", "").split("\n"):
+        if l.strip():
+            lines.append(f"> {l.strip()}")
     if action != "removed" and item.get("url"):
-        line += f"\n    {item['url']}"
-    return line
+        lines.append(f"> 🔗 {item['url']}")
+    return "\n".join(lines)
+
+
+def fmt_due(hours_left, item):
+    lines = [f"⏰ **ใกล้ถึงกำหนดส่ง** (อีก ~{hours_left} ชม.) · {item.get('title','(ไม่มีชื่อ)')}"]
+    if item.get("detail"):
+        lines.append(f"> {item['detail']}")
+    if item.get("url"):
+        lines.append(f"> 🔗 {item['url']}")
+    return "\n".join(lines)
 
 
 def send_discord(webhook, title, body, http_):
@@ -600,14 +610,8 @@ def run_once(cfg, state, init=False, force_mode=None):
             log(f"คอร์ส {cid} ({course_name}): ไม่มีอะไรใหม่ ({len(items)} รายการ)")
             continue
 
-        parts = []
-        if events:
-            parts.append("\n\n".join(fmt_event(a, it) for a, _, it, _ in events))
-        for h, it in dues:
-            parts.append(
-                f"⏰ ใกล้ถึงกำหนดส่ง (อีก ~{h} ชม.) — {it['title']}\n"
-                f"    {it.get('detail','')}\n    {it.get('url','')}"
-            )
+        parts = [fmt_event(a, it) for a, _, it, _ in events]
+        parts += [fmt_due(h, it) for h, it in dues]
         body = "\n\n".join(parts)
         title = f"📚 {course_name} — มีอัปเดต {len(events) + len(dues)} รายการ"
         log(f"คอร์ส {cid}: พบ {len(events)} การเปลี่ยนแปลง, {len(dues)} เตือนกำหนดส่ง")
